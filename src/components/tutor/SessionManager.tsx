@@ -7,6 +7,7 @@ interface Session {
   threadId: string;
   topic: string;
   teachingStyle: string;
+  responseStyle: string;
   status: string;
   completionRate: number;
   createdAt: string;
@@ -113,7 +114,7 @@ export function SessionManager({
                         {session.topic}
                       </h4>
                       <p className="text-xs text-gray-600 capitalize">
-                        {session.teachingStyle.replace('-', ' ')} • {formatDate(session.updatedAt)}
+                        {session.teachingStyle.replace('-', ' ')} • {session.responseStyle} • {formatDate(session.updatedAt)}
                       </p>
                     </div>
                     <div className="text-xs text-gray-600 font-medium ml-2">

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { topic, teachingStyle = 'step-by-step' } = body;
+    const { topic, teachingStyle = 'step-by-step', responseStyle = 'detailed' } = body;
 
     if (!topic || topic.trim().length === 0) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
@@ -58,6 +58,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid teaching style' }, { status: 400 });
     }
 
+    const validResponseStyles = ['concise', 'detailed'];
+    if (!validResponseStyles.includes(responseStyle)) {
+      return NextResponse.json({ error: 'Invalid response style' }, { status: 400 });
+    }
+
     const threadId = uuidv4();
 
     const session = await prisma.learningSession.create({
@@ -66,6 +71,7 @@ export async function POST(request: NextRequest) {
         threadId,
         topic: topic.trim(),
         teachingStyle,
+        responseStyle,
         status: 'active',
         completionRate: 0.00
       },
@@ -91,7 +97,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { sessionId, teachingStyle, status, completionRate } = body;
+    const { sessionId, teachingStyle, responseStyle, status, completionRate } = body;
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
@@ -114,6 +120,14 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid teaching style' }, { status: 400 });
       }
       updateData.teachingStyle = teachingStyle;
+    }
+
+    if (responseStyle) {
+      const validResponseStyles = ['concise', 'detailed'];
+      if (!validResponseStyles.includes(responseStyle)) {
+        return NextResponse.json({ error: 'Invalid response style' }, { status: 400 });
+      }
+      updateData.responseStyle = responseStyle;
     }
 
     if (status) {

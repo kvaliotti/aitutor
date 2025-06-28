@@ -368,13 +368,37 @@ class LearningPlanAgent {
     }
   }
   
-  private generatePlanningPrompt(topic: string, teachingStyle: string): string {
+  private generatePlanningPrompt(topic: string, teachingStyle: string, responseStyle: string): string {
     return `You are a Learning Plan Architect specializing in ${topic}.
 
 CONTEXT:
 - Topic: ${topic}
 - Teaching Style: ${teachingStyle}
+- Response Style: ${responseStyle}
 - Your Role: Create structured, comprehensive learning plans
+
+🚫 OFF-TOPIC QUERY PROTECTION:
+If the user asks for something that is NOT related to learning the topic "${topic}", you must politely decline and redirect them:
+
+DECLINE these requests:
+- Text summarization, rewriting, or editing tasks
+- General writing or content creation
+- Code debugging unrelated to learning
+- Personal advice or non-educational queries
+- Any task that isn't educational about "${topic}"
+
+RESPONSE for off-topic requests:
+"I'm your AI tutor focused specifically on helping you learn ${topic}. I can't help with [summarizing texts/rewriting content/debugging code/etc.] as that's outside my educational role. 
+
+However, I'd be happy to:
+- Explain ${topic} concepts and principles
+- Create practice exercises related to ${topic}
+- Answer questions about ${topic}
+- Guide you through ${topic} learning activities
+
+What aspect of ${topic} would you like to explore or practice?"
+
+ALWAYS stay focused on teaching and learning about "${topic}".
 
 CRITICAL REQUIREMENTS:
 1. Use create_concept_map tool to create 6-8 detailed concepts with concise descriptions
@@ -422,8 +446,27 @@ COMMUNICATION STYLE:
 - Be CONCISE but COMPREHENSIVE in coverage
 - Let the Teaching Agent handle detailed explanations
 
+RESPONSE STYLE REQUIREMENTS:
+${responseStyle === 'concise' ? `
+CONCISE MODE:
+- Write 150-200 words total
+- Create 4-5 key concepts (essential only)
+- Create 3-4 focused tasks
+- Use bullet points, no elaborate explanations
+- Very brief concept descriptions (5-8 words max)
+- One-line task descriptions
+- Focus on core essentials only
+` : `
+DETAILED MODE (Default):
+- Write 200-300 words total
+- Create 6-8 comprehensive concepts
+- Create 5-7 practice tasks
+- Brief but informative descriptions (1-2 sentences)
+- Cover topic thoroughly
+- Include foundational to advanced concepts
+`}
+
 CONTENT REQUIREMENTS:
-- Write 200-300 words total (much shorter than before)
 - List concepts and tasks clearly and briefly
 - End with simple "Ready to start" message
 - NO detailed explanations (that's Teaching Agent's role)
@@ -438,10 +481,10 @@ IMPORTANT:
 Remember: You're an expert educator. Your responses should be educational, well-structured, and end with a single clear direction.`;
   }
   
-  async createLearningPlan(sessionId: string, topic: string, teachingStyle: string, threadId: string): Promise<string> {
+  async createLearningPlan(sessionId: string, topic: string, teachingStyle: string, responseStyle: string, threadId: string): Promise<string> {
     if (!this.agent) {
       console.log('🎯 LearningPlanAgent not available, using fallback');
-      return `🎯 **Learning Plan Agent**\n\n${this.createFallbackPlan(topic, teachingStyle)}`;
+      return `🎯 **Learning Plan Agent**\n\n${this.createFallbackPlan(topic, teachingStyle, responseStyle)}`;
     }
     
     try {
@@ -456,7 +499,7 @@ Remember: You're an expert educator. Your responses should be educational, well-
       };
       
       // Include system prompt in the message
-      const systemPrompt = this.generatePlanningPrompt(topic, teachingStyle);
+      const systemPrompt = this.generatePlanningPrompt(topic, teachingStyle, responseStyle);
       const messages: BaseMessage[] = [
         new HumanMessage({ 
           content: `${systemPrompt}
@@ -510,13 +553,13 @@ Please create both a concept map and practice tasks for this topic, and provide 
           content.includes('Safety measures') || 
           content.includes('</details>')) {
         console.warn('🎯 LearningPlanAgent returned corrupted content, using fallback');
-        content = this.createFallbackPlan(topic, teachingStyle);
+        content = this.createFallbackPlan(topic, teachingStyle, responseStyle);
       }
       
       // Enhanced fallback if content is too short or generic
       if (!content || content.trim() === '' || content.length < 100) {
         console.warn('🎯 LearningPlanAgent returned insufficient content, using enhanced fallback');
-        content = this.createFallbackPlan(topic, teachingStyle);
+        content = this.createFallbackPlan(topic, teachingStyle, responseStyle);
       }
         
       // Add agent identification to the response
@@ -524,12 +567,34 @@ Please create both a concept map and practice tasks for this topic, and provide 
         
     } catch (error) {
       console.error('🎯 LearningPlanAgent error:', error);
-      const fallback = this.createFallbackPlan(topic, teachingStyle);
+      const fallback = this.createFallbackPlan(topic, teachingStyle, responseStyle);
       return `🎯 **Learning Plan Agent**\n\n${fallback}`;
     }
   }
   
-  private createFallbackPlan(topic: string, teachingStyle: string): string {
+  private createFallbackPlan(topic: string, teachingStyle: string, responseStyle: string = 'detailed'): string {
+    if (responseStyle === 'concise') {
+      return `## 🎯 Learning Plan for ${topic}
+
+I've created a focused learning plan for ${topic} with ${teachingStyle} approach.
+
+### 📋 Concept Map (5 concepts created)
+- **${topic} Basics**: Core principles
+- **Key Methods**: Essential approaches  
+- **Applications**: Real-world uses
+- **Best Practices**: Proven strategies
+- **Advanced Topics**: Next-level concepts
+
+### ✅ Practice Tasks (4 tasks created)
+1. **Foundation Quiz**: Test basic understanding
+2. **Hands-on Exercise**: Apply core concepts
+3. **Case Analysis**: Review real examples
+4. **Implementation Task**: Create something practical
+
+### 🚀 Ready to Start
+Your learning plan is now in the sidebar. Let's begin!`;
+    }
+
     return `## 🎯 Learning Plan for ${topic}
 
 I've created a comprehensive learning plan for ${topic} with ${teachingStyle} approach.
@@ -588,7 +653,31 @@ class TeacherAgent {
 CONTEXT:
 - Topic: ${context.currentTopic}
 - Teaching Style: ${context.teachingStyle}
+- Response Style: ${context.responseStyle || 'detailed'}
 - Session Progress: ${context.sessionProgress || 0}% complete
+
+🚫 OFF-TOPIC QUERY PROTECTION:
+CRITICAL: If the user asks for something NOT related to learning "${context.currentTopic}", you must politely decline:
+
+DECLINE these requests:
+- Text summarization, rewriting, or editing tasks
+- General writing or content creation  
+- Code debugging unrelated to learning ${context.currentTopic}
+- Personal advice or non-educational queries
+- Any task outside teaching ${context.currentTopic}
+
+RESPONSE for off-topic requests:
+"I'm your AI tutor focused specifically on helping you learn ${context.currentTopic}. I can't help with [summarizing texts/rewriting content/debugging unrelated code/etc.] as that's outside my educational role.
+
+However, I'd be happy to:
+- Explain ${context.currentTopic} concepts and principles
+- Create practice exercises related to ${context.currentTopic}
+- Answer questions about ${context.currentTopic}
+- Guide you through ${context.currentTopic} learning activities
+
+What aspect of ${context.currentTopic} would you like to explore or practice?"
+
+ALWAYS stay focused on teaching "${context.currentTopic}".
 
 CURRENT LEARNING STATE:
 - Total Concepts: ${context.conceptMap?.length || 0}
@@ -713,8 +802,28 @@ FORMATTING GUIDELINES:
 - Use bullet points and numbered lists for clarity
 - Use horizontal rules (---) to separate major sections
 
-CONTENT REQUIREMENTS:
+RESPONSE STYLE REQUIREMENTS:
+${context.responseStyle === 'concise' ? `
+CONCISE MODE:
+- Write 200-300 words (shorter responses)
+- Focus on key points only
+- Use bullet points and brief explanations
+- Provide 1-2 examples maximum
+- Keep sections short and punchy
+- Prioritize essential information
+- Quick, actionable guidance
+` : `
+DETAILED MODE (Default):
 - Write 400-600 words for comprehensive coverage
+- Include multiple specific, concrete examples
+- Provide thorough explanations
+- Use rich markdown formatting
+- Include comparisons and analogies
+- Cover topic comprehensively
+- Detailed, educational content
+`}
+
+CONTENT REQUIREMENTS:
 - Include specific, concrete examples
 - Connect to practical applications
 - Encourage active engagement
@@ -912,7 +1021,8 @@ async function processUserMessage(
       const planResult = await learningPlanAgent.createLearningPlan(
         sessionId, 
         context.currentTopic, 
-        context.teachingStyle, 
+        context.teachingStyle,
+        context.responseStyle, 
         threadId
       );
       console.log(`🎯 Learning plan created in ${Date.now() - planStart}ms`);
@@ -1034,6 +1144,7 @@ async function getSessionContext(sessionId: string, userId: string) {
       userEmail: session.user.email,
       currentTopic: session.topic,
       teachingStyle: session.teachingStyle,
+      responseStyle: session.responseStyle,
       conceptMap: session.concepts,
       completedTasks,
       pendingTasks,

@@ -9,6 +9,7 @@ interface Session {
   threadId: string;
   topic: string;
   teachingStyle: string;
+  responseStyle: string;
   status: string;
   completionRate: number;
   createdAt: string;
@@ -28,7 +29,7 @@ interface ChatInterfaceProps {
   isLoading: boolean;
   isCreatingPlan: boolean;
   showSessionSelector: boolean;
-  onCreateSession: (topic: string, teachingStyle: string) => Promise<void>;
+  onCreateSession: (topic: string, teachingStyle: string, responseStyle: string) => Promise<void>;
   sessions: Session[];
   onSelectSession: (session: Session) => Promise<void>;
 }
@@ -50,6 +51,7 @@ export function ChatInterface({
   // Session creation form state
   const [newTopic, setNewTopic] = useState('');
   const [newTeachingStyle, setNewTeachingStyle] = useState('step-by-step');
+  const [newResponseStyle, setNewResponseStyle] = useState('detailed');
   const [isCreating, setIsCreating] = useState(false);
 
   // Auto-scroll to latest message (not bottom) when new messages arrive
@@ -73,7 +75,7 @@ export function ChatInterface({
 
     setIsCreating(true);
     try {
-      await onCreateSession(newTopic.trim(), newTeachingStyle);
+      await onCreateSession(newTopic.trim(), newTeachingStyle, newResponseStyle);
       setNewTopic('');
     } finally {
       setIsCreating(false);
@@ -130,8 +132,10 @@ export function ChatInterface({
               autoFocus
             />
             
-            <div className="flex items-center space-x-3">
-              <div className="flex space-x-2 flex-1">
+            {/* Teaching Style Selection */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-700">Teaching Style</label>
+              <div className="flex space-x-2">
                 <label className="flex items-center text-xs">
                   <input
                     type="radio"
@@ -171,7 +175,41 @@ export function ChatInterface({
                   🔍 Discovery
                 </label>
               </div>
-              
+            </div>
+            
+            {/* Response Style Selection */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-700">Response Style</label>
+              <div className="flex space-x-3">
+                <label className="flex items-center text-xs">
+                  <input
+                    type="radio"
+                    name="responseStyle"
+                    value="detailed"
+                    checked={newResponseStyle === 'detailed'}
+                    onChange={(e) => setNewResponseStyle(e.target.value)}
+                    className="mr-1"
+                    disabled={isCreating}
+                  />
+                  📝 Detailed (recommended)
+                </label>
+                
+                <label className="flex items-center text-xs">
+                  <input
+                    type="radio"
+                    name="responseStyle"
+                    value="concise"
+                    checked={newResponseStyle === 'concise'}
+                    onChange={(e) => setNewResponseStyle(e.target.value)}
+                    className="mr-1"
+                    disabled={isCreating}
+                  />
+                  ⚡ Concise
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
               <button
                 type="submit"
                 disabled={!newTopic.trim() || isCreating}
@@ -212,7 +250,7 @@ export function ChatInterface({
                         {session.topic}
                       </h4>
                       <p className="text-xs text-gray-600">
-                        {session.teachingStyle.replace('-', ' ')} • {formatDate(session.updatedAt)}
+                        {session.teachingStyle.replace('-', ' ')} • {session.responseStyle} • {formatDate(session.updatedAt)}
                       </p>
                     </div>
                     <div className="text-right ml-3">

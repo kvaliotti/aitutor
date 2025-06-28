@@ -33,6 +33,7 @@ model LearningSession {
   threadId       String   @unique
   topic          String
   teachingStyle  String   @default("step-by-step") // socratic, step-by-step, discovery-based
+  responseStyle  String   @default("detailed") // concise, detailed
   status         String   @default("active") // active, completed, paused
   completionRate Float    @default(0.00)
   createdAt      DateTime @default(now())

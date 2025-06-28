@@ -12,6 +12,7 @@ interface Session {
   threadId: string;
   topic: string;
   teachingStyle: string;
+  responseStyle: string;
   status: string;
   completionRate: number;
   createdAt: string;
@@ -182,17 +183,17 @@ export function TutorLayout() {
     }
   };
 
-  const createNewSession = async (topic: string, teachingStyle: string) => {
+  const createNewSession = async (topic: string, teachingStyle: string, responseStyle: string) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('Creating new session:', { topic, teachingStyle });
+      console.log('Creating new session:', { topic, teachingStyle, responseStyle });
 
       const response = await fetch('/api/tutor/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, teachingStyle })
+        body: JSON.stringify({ topic, teachingStyle, responseStyle })
       });
 
       console.log('Session creation response status:', response.status);
@@ -511,9 +512,9 @@ export function TutorLayout() {
     }
   };
 
-  const handleCreateSession = async (topic: string, teachingStyle: string) => {
+  const handleCreateSession = async (topic: string, teachingStyle: string, responseStyle: string) => {
     try {
-      const session = await createNewSession(topic, teachingStyle);
+      const session = await createNewSession(topic, teachingStyle, responseStyle);
       if (session) {
         setCurrentSession(session);
         loadSessionData(session.id);
