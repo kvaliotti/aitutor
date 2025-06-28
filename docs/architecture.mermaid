@@ -1,0 +1,37 @@
+graph TB
+    Client[Web Client<br/>Next.js Frontend] --> API[API Routes<br/>Next.js Backend]
+    API --> Auth[Authentication Layer<br/>JWT & bcrypt]
+    API --> DB[(PostgreSQL Database<br/>User Management)]
+    
+    subgraph "Frontend Pages"
+        Home[Home Page<br/>Auto-redirect]
+        Signup[Signup Page<br/>User Registration]
+        Login[Login Page<br/>User Authentication]
+        Dashboard[Dashboard Page<br/>Protected Route]
+    end
+    
+    subgraph "API Endpoints"
+        SignupAPI[POST /api/auth/signup<br/>User Registration]
+        LoginAPI[POST /api/auth/login<br/>User Authentication]
+        MeAPI[GET /api/auth/me<br/>User Profile]
+    end
+    
+    subgraph "Database Schema"
+        UserTable[Users Table<br/>id, email, password,<br/>createdAt, updatedAt]
+    end
+    
+    Client --> Home
+    Client --> Signup
+    Client --> Login
+    Client --> Dashboard
+    
+    Signup --> SignupAPI
+    Login --> LoginAPI
+    Dashboard --> MeAPI
+    
+    SignupAPI --> Auth
+    LoginAPI --> Auth
+    MeAPI --> Auth
+    
+    Auth --> UserTable
+    DB --> UserTable
