@@ -45,7 +45,7 @@ export function ConceptMapSidebar({ concepts, onToggleCompletion }: ConceptMapSi
           {hasSubConcepts && (
             <button
               onClick={() => toggleExpanded(concept.id)}
-              className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600"
+              className="w-4 h-4 flex items-center justify-center text-gray-600 hover:text-gray-800"
             >
               {isExpanded ? '▼' : '▶'}
             </button>
@@ -69,7 +69,7 @@ export function ConceptMapSidebar({ concepts, onToggleCompletion }: ConceptMapSi
             <div 
               className={`text-sm font-medium ${
                 concept.isCompleted 
-                  ? 'text-gray-500 line-through' 
+                  ? 'text-gray-600 line-through' 
                   : 'text-gray-900'
               }`}
             >
@@ -102,10 +102,10 @@ export function ConceptMapSidebar({ concepts, onToggleCompletion }: ConceptMapSi
 
   if (concepts.length === 0) {
     return (
-      <div className="p-3 text-center text-gray-500">
+      <div className="p-3 text-center text-gray-700">
         <div className="text-xl mb-1">🗺️</div>
         <p className="text-xs">No concept map yet.</p>
-        <p className="text-xs text-gray-400">Start chatting to generate your learning path!</p>
+        <p className="text-xs text-gray-600">Start chatting to generate your learning path!</p>
       </div>
     );
   }

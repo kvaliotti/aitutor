@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { chatWithAgent } from '@/lib/ai-agent';
+import { chatWithAgent } from '@/lib/agents';
+
+export const maxDuration = 60; // Set timeout to 60 seconds
 
 // Rate limiting map (in production, use Redis or similar)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();

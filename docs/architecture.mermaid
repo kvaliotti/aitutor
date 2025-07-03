@@ -1,37 +1,148 @@
 graph TB
     Client[Web Client<br/>Next.js Frontend] --> API[API Routes<br/>Next.js Backend]
     API --> Auth[Authentication Layer<br/>JWT & bcrypt]
-    API --> DB[(PostgreSQL Database<br/>User Management)]
+    API --> DB[(PostgreSQL Database<br/>Prisma ORM)]
     
-    subgraph "Frontend Pages"
+    subgraph "Frontend Pages & Components"
         Home[Home Page<br/>Auto-redirect]
         Signup[Signup Page<br/>User Registration]
         Login[Login Page<br/>User Authentication]
         Dashboard[Dashboard Page<br/>Protected Route]
+        Tutor[Tutor Page<br/>AI Learning System]
+        Library[Library Page<br/>Concept Management]
+        Therapy[Therapy Page<br/>CBT Psychotherapist]
+        
+        subgraph "Learning Components"
+            TutorLayout[TutorLayout<br/>Dual-pane interface]
+            ChatInterface[ChatInterface<br/>AI conversation]
+            ConceptMap[ConceptMapSidebar<br/>Learning structure]
+            TaskTracker[TaskTracker<br/>Progress tracking]
+        end
+        
+        subgraph "CBT Components"
+            CBTChatInterface[CBTChatInterface<br/>Therapy conversation]
+            SessionManager[SessionManager<br/>Therapy sessions]
+        end
+        
+        subgraph "Library Components"
+            LibraryStats[LibraryStats<br/>Progress dashboard]
+            CategoryGrid[CategoryGrid<br/>Subject categories]
+            AchievementBadges[AchievementBadges<br/>Gamification]
+        end
     end
     
     subgraph "API Endpoints"
-        SignupAPI[POST /api/auth/signup<br/>User Registration]
-        LoginAPI[POST /api/auth/login<br/>User Authentication]
-        MeAPI[GET /api/auth/me<br/>User Profile]
+        subgraph "Authentication"
+            SignupAPI[POST /api/auth/signup]
+            LoginAPI[POST /api/auth/login]
+            MeAPI[GET /api/auth/me]
+        end
+        
+        subgraph "Learning System"
+            SessionsAPI[GET/POST /api/sessions]
+            ChatAPI[GET/POST /api/chat]
+            ConceptsAPI[GET/PUT /api/concepts]
+            TasksAPI[GET/PUT /api/tasks]
+            ProgressAPI[GET /api/progress]
+        end
+        
+        subgraph "Personal Library"
+            LibraryAPI[GET /api/library/overview]
+            CategoriesAPI[GET /api/library/categories]
+            StatsAPI[GET /api/library/stats]
+        end
+        
+        subgraph "CBT Therapy System"
+            TherapySessionsAPI[GET/POST /api/therapy/sessions]
+            TherapyChatAPI[GET/POST /api/therapy/chat]
+            TherapyGoalsAPI[GET/PUT /api/therapy/goals]
+            TherapyExercisesAPI[GET/PUT /api/therapy/exercises]
+        end
+    end
+    
+    subgraph "AI Agent System"
+        subgraph "Learning Agents"
+            LearningPlanAgent[LearningPlanAgent<br/>Structure Creation]
+            TeacherAgent[TeacherAgent<br/>Education Delivery]
+            TutorOrchestration[Tutor Orchestration<br/>Agent Coordination]
+        end
+        
+        subgraph "CBT Therapy Agents"
+            CBTAssessmentAgent[CBTAssessmentAgent<br/>Therapy Plan Creation]
+            CBTPsychotherapistAgent[CBTPsychotherapistAgent<br/>Therapy Delivery]
+            CBTOrchestration[CBT Orchestration<br/>Agent Coordination]
+        end
     end
     
     subgraph "Database Schema"
-        UserTable[Users Table<br/>id, email, password,<br/>createdAt, updatedAt]
+        subgraph "Core Tables"
+            UserTable[Users<br/>Authentication data]
+        end
+        
+        subgraph "Learning System Tables"
+            LearningSessionsTable[Learning Sessions<br/>AI tutor sessions]
+            ConceptsTable[Concepts<br/>Knowledge hierarchy]
+            TasksTable[Tasks<br/>Practice exercises]
+            ChatMessagesTable[Chat Messages<br/>Conversation history]
+            SubjectCategoriesTable[Subject Categories<br/>50 predefined categories]
+            ConceptHistoryTable[Concept Learning History<br/>Review tracking]
+        end
+        
+        subgraph "CBT Therapy Tables"
+            TherapySessionsTable[Therapy Sessions<br/>CBT sessions]
+            TherapyGoalsTable[Therapy Goals<br/>Treatment objectives]
+            TherapyExercisesTable[Therapy Exercises<br/>CBT practices]
+            TherapyChatTable[Therapy Chat Messages<br/>Therapy conversations]
+            TherapyProgressTable[Therapy Progress History<br/>Treatment tracking]
+        end
     end
     
+    %% Frontend Connections
     Client --> Home
     Client --> Signup
     Client --> Login
     Client --> Dashboard
+    Client --> Tutor
+    Client --> Library
+    Client --> Therapy
     
+    %% API Connections
     Signup --> SignupAPI
     Login --> LoginAPI
     Dashboard --> MeAPI
+    Tutor --> SessionsAPI
+    Tutor --> ChatAPI
+    Tutor --> ConceptsAPI
+    Tutor --> TasksAPI
+    Library --> LibraryAPI
+    Library --> CategoriesAPI
+    Library --> StatsAPI
+    Therapy --> TherapySessionsAPI
+    Therapy --> TherapyChatAPI
+    Therapy --> TherapyGoalsAPI
+    Therapy --> TherapyExercisesAPI
     
-    SignupAPI --> Auth
-    LoginAPI --> Auth
-    MeAPI --> Auth
+    %% AI Agent Connections
+    SessionsAPI --> LearningPlanAgent
+    ChatAPI --> TutorOrchestration
+    TutorOrchestration --> LearningPlanAgent
+    TutorOrchestration --> TeacherAgent
     
+    TherapySessionsAPI --> CBTAssessmentAgent
+    TherapyChatAPI --> CBTOrchestration
+    CBTOrchestration --> CBTAssessmentAgent
+    CBTOrchestration --> CBTPsychotherapistAgent
+    
+    %% Database Connections
     Auth --> UserTable
-    DB --> UserTable
+    API --> LearningSessionsTable
+    API --> ConceptsTable
+    API --> TasksTable
+    API --> ChatMessagesTable
+    API --> SubjectCategoriesTable
+    API --> ConceptHistoryTable
+    API --> TherapySessionsTable
+    API --> TherapyGoalsTable
+    API --> TherapyExercisesTable
+    API --> TherapyChatTable
+    API --> TherapyProgressTable

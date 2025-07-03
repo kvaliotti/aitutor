@@ -47,10 +47,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { topic, teachingStyle = 'step-by-step', responseStyle = 'detailed' } = body;
+    const { topic, goal, teachingStyle = 'step-by-step', responseStyle = 'detailed' } = body;
 
     if (!topic || topic.trim().length === 0) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
+    }
+
+    // Goal is optional but should be reasonable length if provided
+    if (goal && goal.trim().length > 500) {
+      return NextResponse.json({ error: 'Goal must be under 500 characters' }, { status: 400 });
     }
 
     const validTeachingStyles = ['socratic', 'step-by-step', 'discovery-based'];
@@ -70,6 +75,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         threadId,
         topic: topic.trim(),
+        goal: goal ? goal.trim() : null,
         teachingStyle,
         responseStyle,
         status: 'active',

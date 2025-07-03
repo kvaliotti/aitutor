@@ -22,28 +22,52 @@ model User {
   updatedAt DateTime @updatedAt
 
   // AI Tutor relationships
-  learningSessions LearningSession[]
+  learningSessions        LearningSession[]
+  conceptLearningHistory  ConceptLearningHistory[]
+
+  // CBT Therapy relationships
+  therapySessions         TherapySession[]
+  therapyProgressHistory  TherapyProgressHistory[]
+  abcdeExercises          ABCDEExercise[]
 
   @@map("users")
 }
 
-model LearningSession {
-  id             String   @id @default(cuid())
-  userId         String
-  threadId       String   @unique
-  topic          String
-  teachingStyle  String   @default("step-by-step") // socratic, step-by-step, discovery-based
-  responseStyle  String   @default("detailed") // concise, detailed
-  status         String   @default("active") // active, completed, paused
-  completionRate Float    @default(0.00)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model SubjectCategory {
+  id           Int    @id @default(autoincrement())
+  name         String @unique
+  icon         String @default("📚")
+  displayOrder Int    @unique
+  createdAt    DateTime @default(now())
 
   // Relationships
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  concepts     Concept[]
-  tasks        Task[]
-  chatMessages ChatMessage[]
+  learningSessions LearningSession[]
+
+  @@map("subject_categories")
+}
+
+model LearningSession {
+  id                String   @id @default(cuid())
+  userId            String
+  threadId          String   @unique
+  topic             String
+  goal              String?  // User's learning goal - why they want to learn this topic
+  subjectCategoryId Int?     @default(1) // Default to "Other" category
+  subjectName       String?
+  teachingStyle     String   @default("step-by-step") // socratic, step-by-step, discovery-based
+  responseStyle     String   @default("detailed") // concise, detailed
+  status            String   @default("active") // active, completed, paused
+  completionRate    Float    @default(0.00)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectCategory        SubjectCategory?         @relation(fields: [subjectCategoryId], references: [id], onDelete: SetNull)
+  concepts               Concept[]
+  tasks                  Task[]
+  chatMessages           ChatMessage[]
+  conceptLearningHistory ConceptLearningHistory[]
 
   @@map("learning_sessions")
 }
@@ -60,10 +84,11 @@ model Concept {
   createdAt         DateTime  @default(now())
 
   // Relationships
-  session       LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  parentConcept Concept?        @relation("ConceptHierarchy", fields: [parentConceptId], references: [id])
-  subConcepts   Concept[]       @relation("ConceptHierarchy")
-  tasks         Task[]
+  session               LearningSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentConcept         Concept?                 @relation("ConceptHierarchy", fields: [parentConceptId], references: [id])
+  subConcepts           Concept[]                @relation("ConceptHierarchy")
+  tasks                 Task[]
+  conceptLearningHistory ConceptLearningHistory[]
 
   @@map("concepts")
 }
@@ -97,4 +122,172 @@ model ChatMessage {
   session LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("chat_messages")
+}
+
+model ConceptLearningHistory {
+  id               String    @id @default(cuid())
+  userId           String
+  conceptId        String
+  learningSessionId String
+  completedAt      DateTime?
+  lastReviewedAt   DateTime?
+  reviewCount      Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relationships
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concept         Concept         @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  learningSession LearningSession @relation(fields: [learningSessionId], references: [id], onDelete: Cascade)
+
+  // Indexes for performance optimization
+  @@index([userId])
+  @@index([conceptId])
+  @@index([userId, conceptId])
+  @@index([completedAt])
+  @@index([lastReviewedAt])
+
+  @@map("concept_learning_history")
+}
+
+// =============================================================================
+// CBT THERAPY SYSTEM SCHEMA
+// =============================================================================
+
+model TherapySession {
+  id                String   @id @default(cuid())
+  userId            String
+  threadId          String   @unique
+  primaryConcern    String   // What the user wants to work on
+  therapyGoal       String?  // User's therapeutic goal
+  therapyStyle      String   @default("cognitive-behavioral") // cognitive-behavioral, mindfulness-based, solution-focused
+  sessionType       String   @default("assessment") // assessment, therapy, maintenance
+  status            String   @default("active") // active, completed, paused
+  progressLevel     Float    @default(0.00) // Overall progress (0-100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goals               TherapyGoal[]
+  exercises           TherapyExercise[]
+  chatMessages        TherapyChatMessage[]
+  progressHistory     TherapyProgressHistory[]
+  abcdeExercises      ABCDEExercise[]
+
+  @@map("therapy_sessions")
+}
+
+model TherapyGoal {
+  id                String    @id @default(cuid())
+  sessionId         String
+  title             String    // e.g., "Manage Anxiety", "Challenge Negative Thoughts"
+  description       String?   // Detailed description of the goal
+  category          String    @default("cognitive") // cognitive, behavioral, emotional, relational
+  parentGoalId      String?   // For hierarchical goals
+  priority          Int       @default(1) // 1=high, 2=medium, 3=low
+  targetDate        DateTime? // When user wants to achieve this
+  isActive          Boolean   @default(true)
+  isCompleted       Boolean   @default(false)
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  // Relationships
+  session             TherapySession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentGoal          TherapyGoal?            @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
+  subGoals            TherapyGoal[]           @relation("GoalHierarchy")
+  exercises           TherapyExercise[]
+  progressHistory     TherapyProgressHistory[]
+
+  @@map("therapy_goals")
+}
+
+model TherapyExercise {
+  id            String    @id @default(cuid())
+  sessionId     String
+  goalId        String?
+  title         String    // e.g., "Thought Record", "Breathing Exercise"
+  description   String    // Instructions for the exercise
+  exerciseType  String    @default("worksheet") // worksheet, breathing, mindfulness, journaling, behavioral
+  difficulty    Int       @default(1) // 1=easy, 2=medium, 3=hard
+  estimatedTime Int       @default(10) // Minutes
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  feedback      String?   // User's feedback after completing
+  createdAt     DateTime  @default(now())
+
+  // Relationships
+  session TherapySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  goal    TherapyGoal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@map("therapy_exercises")
+}
+
+model TherapyChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // 'user' or 'assistant'
+  content   String
+  agentType String?  // 'assessment' or 'therapist' - which agent generated this
+  metadata  Json?    // For storing therapeutic insights, goal updates, etc.
+  createdAt DateTime @default(now())
+
+  // Relationships
+  session TherapySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("therapy_chat_messages")
+}
+
+model TherapyProgressHistory {
+  id               String    @id @default(cuid())
+  userId           String
+  sessionId        String
+  goalId           String?
+  progressType     String    // 'goal_completed', 'exercise_completed', 'milestone_reached'
+  progressValue    Float     // Progress amount (0-100)
+  notes            String?   // Optional notes about progress
+  createdAt        DateTime  @default(now())
+
+  // Relationships
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session TherapySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  goal    TherapyGoal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  // Indexes for performance optimization
+  @@index([userId])
+  @@index([sessionId])
+  @@index([goalId])
+  @@index([createdAt])
+
+  @@map("therapy_progress_history")
+}
+
+model ABCDEExercise {
+  id                String    @id @default(cuid())
+  userId            String
+  sessionId         String
+  title             String    // Short descriptive title summarizing the exercise
+  activatingEvent   String    @db.Text // The triggering situation (A)
+  beliefs           String    @db.Text // Automatic thoughts and beliefs (B)
+  consequences      String    @db.Text // Emotional and behavioral responses (C)
+  disputation       String?   @db.Text // Challenges to the beliefs (D) - optional
+  effectiveBeliefs  String?   @db.Text // New, more balanced beliefs (E) - optional
+  completionStatus  String    @default("in_progress") // in_progress, completed, abandoned
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  // Relationships
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session TherapySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Indexes for performance optimization
+  @@index([userId])
+  @@index([sessionId])
+  @@index([userId, sessionId])
+  @@index([completionStatus])
+  @@index([createdAt])
+  @@index([completedAt])
+
+  @@map("abcde_exercises")
 }

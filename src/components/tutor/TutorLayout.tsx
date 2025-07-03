@@ -6,6 +6,8 @@ import { ConceptMapSidebar } from './ConceptMapSidebar';
 import { TaskTracker } from './TaskTracker';
 import { SessionManager } from './SessionManager';
 import { TeachingSettings } from './TeachingSettings';
+import { Navigation } from '@/components/Navigation';
+import { LibraryPreview } from './LibraryPreview';
 
 interface Session {
   id: string;
@@ -57,6 +59,7 @@ export function TutorLayout() {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
+  const [user, setUser] = useState<{ id: string; email: string; createdAt: string } | null>(null);
   const [progressUpdateTimeout, setProgressUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showSessionSelector, setShowSessionSelector] = useState(false);
   
@@ -122,6 +125,7 @@ export function TutorLayout() {
       if (response.ok) {
         const data = await response.json();
         setUserEmail(data.user.email);
+        setUser(data.user);
       }
     } catch (error) {
       console.error('Error getting user info:', error);
@@ -183,17 +187,17 @@ export function TutorLayout() {
     }
   };
 
-  const createNewSession = async (topic: string, teachingStyle: string, responseStyle: string) => {
+  const createNewSession = async (topic: string, goal: string, teachingStyle: string, responseStyle: string) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('Creating new session:', { topic, teachingStyle, responseStyle });
+      console.log('Creating new session:', { topic, goal, teachingStyle, responseStyle });
 
       const response = await fetch('/api/tutor/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, teachingStyle, responseStyle })
+        body: JSON.stringify({ topic: topic.trim(), goal: goal.trim(), teachingStyle, responseStyle })
       });
 
       console.log('Session creation response status:', response.status);
@@ -216,7 +220,8 @@ export function TutorLayout() {
         setTimeout(async () => {
           console.log('Sending initial welcome message for session:', newSession.id);
           try {
-            await sendMessageToSession(newSession, `Hello! I'm ready to start learning about ${topic}. Please create a learning path for me and give me my first practice task!`);
+            // Send enhanced message with both what and why
+            await sendMessageToSession(newSession, `I want to learn ${topic}, so that I ${goal}. Please create a learning path for me and give me my first practice task!`);
           } catch (msgError) {
             console.error('Error sending initial message:', msgError);
             setError('Session created but failed to start conversation. Please try sending a message manually.');
@@ -512,9 +517,9 @@ export function TutorLayout() {
     }
   };
 
-  const handleCreateSession = async (topic: string, teachingStyle: string, responseStyle: string) => {
+  const handleCreateSession = async (topic: string, goal: string, teachingStyle: string, responseStyle: string) => {
     try {
-      const session = await createNewSession(topic, teachingStyle, responseStyle);
+      const session = await createNewSession(topic, goal, teachingStyle, responseStyle);
       if (session) {
         setCurrentSession(session);
         loadSessionData(session.id);
@@ -539,44 +544,52 @@ export function TutorLayout() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-      {/* Top Header - Fixed Height with Session Management */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-6">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">AI Tutor</h1>
-            {currentSession && (
-              <p className="text-xs text-gray-600">Learning: {currentSession.topic}</p>
-            )}
-          </div>
-          
-          {/* Session Management in Header */}
-          <div className="flex items-center space-x-3">
-            <SessionManager
-              sessions={sessions}
-              currentSession={currentSession}
-              onSessionChange={(session) => {
-                setCurrentSession(session);
-                loadSessionData(session.id);
-                setShowSessionSelector(false);
-              }}
-              onCreateSession={() => setShowSessionSelector(true)}
-              isLoading={isLoading}
-            />
-          </div>
+      {/* Navigation Header */}
+      <Navigation user={user || undefined} variant="minimal" />
+      
+      {/* Session Management Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center space-x-4">
+          {currentSession && (
+            <div className="flex items-center space-x-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Current Session</p>
+                <p className="text-xs text-gray-600">Learning: {currentSession.topic}</p>
+              </div>
+              
+              {/* Quick Library Access */}
+              <div className="hidden sm:flex items-center space-x-2 border-l border-gray-200 pl-4">
+                <a
+                  href="/library"
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  📚 View Library
+                </a>
+                <span className="text-gray-300">|</span>
+                <a
+                  href="/dashboard"
+                  className="text-xs text-gray-600 hover:text-gray-800 font-medium"
+                >
+                  🏠 Dashboard
+                </a>
+              </div>
+            </div>
+          )}
         </div>
         
-        {/* User Profile Section */}
+        {/* Session Management */}
         <div className="flex items-center space-x-3">
-          <div className="text-right">
-            <p className="text-sm font-medium text-gray-900">{userEmail}</p>
-            <p className="text-xs text-gray-500">Signed in</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
+          <SessionManager
+            sessions={sessions}
+            currentSession={currentSession}
+            onSessionChange={(session) => {
+              setCurrentSession(session);
+              loadSessionData(session.id);
+              setShowSessionSelector(false);
+            }}
+            onCreateSession={() => setShowSessionSelector(true)}
+            isLoading={isLoading}
+          />
         </div>
       </div>
 
@@ -624,6 +637,9 @@ export function TutorLayout() {
                   {Math.round(currentSession.completionRate)}% complete
                 </p>
               </div>
+
+              {/* Library Preview - Scrollable */}
+              <LibraryPreview />
               
               {/* Concept Map - Scrollable */}
               <div className="border-b border-gray-200">

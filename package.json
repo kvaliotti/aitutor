@@ -15,10 +15,15 @@
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
+    "@heroicons/react": "^2.2.0",
     "@langchain/core": "^0.3.61",
     "@langchain/google-genai": "^0.2.13",
     "@langchain/langgraph": "^0.3.5",
@@ -51,6 +56,7 @@
     "eslint-config-next": "15.3.4",
     "prisma": "^6.10.1",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

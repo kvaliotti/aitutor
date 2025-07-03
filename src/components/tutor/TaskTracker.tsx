@@ -61,10 +61,10 @@ export function TaskTracker({ tasks, onToggleCompletion }: TaskTrackerProps) {
       </div>
 
       {tasks.length === 0 ? (
-        <div className="text-center py-4 text-gray-500">
+        <div className="text-center py-4 text-gray-700">
           <div className="text-xl mb-1">📝</div>
           <p className="text-xs">No practice tasks yet.</p>
-          <p className="text-xs text-gray-400">Your AI tutor will create tasks as you learn!</p>
+          <p className="text-xs text-gray-600">Your AI tutor will create tasks as you learn!</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -92,7 +92,7 @@ export function TaskTracker({ tasks, onToggleCompletion }: TaskTrackerProps) {
           {/* Completed Tasks */}
           {completedTasks.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
+              <div className="text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
                 Completed ({completedTasks.length})
               </div>
               <div className="space-y-1.5">
@@ -107,7 +107,7 @@ export function TaskTracker({ tasks, onToggleCompletion }: TaskTrackerProps) {
                   />
                 ))}
                 {completedTasks.length > 3 && (
-                  <div className="text-xs text-gray-500 text-center py-2">
+                  <div className="text-xs text-gray-600 text-center py-2">
                     ... and {completedTasks.length - 3} more completed
                   </div>
                 )}
@@ -172,7 +172,7 @@ function TaskItem({
             </h4>
             <button
               onClick={onToggleExpanded}
-              className="ml-2 text-gray-400 hover:text-gray-600"
+              className="ml-2 text-gray-600 hover:text-gray-800"
             >
               {isExpanded ? '▲' : '▼'}
             </button>
@@ -184,7 +184,7 @@ function TaskItem({
             </div>
           )}
           
-          <div className="text-xs text-gray-500 mt-0.5">
+          <div className="text-xs text-gray-600 mt-0.5">
             {formatDate(task.createdAt)}
           </div>
           
