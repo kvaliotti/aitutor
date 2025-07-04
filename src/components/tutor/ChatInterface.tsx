@@ -68,14 +68,26 @@ function SessionCreationForm({
   const [goal, setGoal] = useState('');
   const [teachingStyle, setTeachingStyle] = useState('step-by-step');
   const [responseStyle, setResponseStyle] = useState('detailed');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim() || !goal.trim() || isCreating) return;
     
-    await onCreateSession(topic.trim(), goal.trim(), teachingStyle, responseStyle);
-    setTopic('');
-    setGoal('');
+    try {
+      setError(null);
+      await onCreateSession(topic.trim(), goal.trim(), teachingStyle, responseStyle);
+      
+      // Only clear form fields if session creation succeeded
+      setTopic('');
+      setGoal('');
+      setTeachingStyle('step-by-step');
+      setResponseStyle('detailed');
+    } catch (err) {
+      // Handle errors and show feedback to user
+      console.error('Session creation error:', err);
+      setError('Failed to create session. Please try again.');
+    }
   };
 
   return (
@@ -84,6 +96,16 @@ function SessionCreationForm({
         <div className="text-center mb-3">
           <p className="text-sm font-medium text-gray-700">Tell us what you want to learn and why</p>
         </div>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-red-600 text-sm">⚠️</span>
+              <span className="text-sm text-red-700">{error}</span>
+            </div>
+          </div>
+        )}
         
         <div className="space-y-3">
           <div>
@@ -411,6 +433,10 @@ export function ChatInterface({
     setIsCreating(true);
     try {
       await onCreateSession(topic, goal, teachingStyle, responseStyle);
+    } catch (error) {
+      console.error('ChatInterface handleCreateSession error:', error);
+      // Re-throw the error so the form can handle it
+      throw error;
     } finally {
       setIsCreating(false);
     }

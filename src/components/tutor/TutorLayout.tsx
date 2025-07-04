@@ -233,12 +233,12 @@ export function TutorLayout() {
         const errorData = await response.json();
         console.error('Session creation failed:', errorData);
         setError(errorData.error || 'Failed to create session');
-        return null;
+        throw new Error(errorData.error || 'Failed to create session');
       }
     } catch (error) {
       console.error('Error creating session:', error);
       setError('Failed to create session. Please check your connection and try again.');
-      return null;
+      throw error; // Re-throw the error instead of returning null
     } finally {
       setIsLoading(false);
     }
@@ -520,14 +520,14 @@ export function TutorLayout() {
   const handleCreateSession = async (topic: string, goal: string, teachingStyle: string, responseStyle: string) => {
     try {
       const session = await createNewSession(topic, goal, teachingStyle, responseStyle);
-      if (session) {
-        setCurrentSession(session);
-        loadSessionData(session.id);
-        setShowSessionSelector(false);
-      }
+      setCurrentSession(session);
+      loadSessionData(session.id);
+      setShowSessionSelector(false);
     } catch (error) {
       console.error('Error creating session:', error);
       setError('Failed to create session. Please check your connection and try again.');
+      // Re-throw the error so the form can handle it
+      throw error;
     }
   };
 
