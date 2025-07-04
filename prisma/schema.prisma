@@ -52,7 +52,7 @@ model LearningSession {
   threadId          String   @unique
   topic             String
   goal              String?  // User's learning goal - why they want to learn this topic
-  subjectCategoryId Int?     @default(1) // Default to "Other" category
+  subjectCategoryId Int?     // Optional reference to subject category (null if not categorized)
   subjectName       String?
   teachingStyle     String   @default("step-by-step") // socratic, step-by-step, discovery-based
   responseStyle     String   @default("detailed") // concise, detailed

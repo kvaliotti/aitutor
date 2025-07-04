@@ -147,14 +147,34 @@ const conceptMapTool = tool(
       // Update the learning session with categorization information
       if (categoryId || subjectName) {
         const updateData: any = {};
-        if (categoryId) updateData.subjectCategoryId = categoryId;
+        
+        // Check if the category exists before using it
+        if (categoryId) {
+          try {
+            const categoryExists = await prisma.subjectCategory.findUnique({
+              where: { id: categoryId }
+            });
+            
+            if (categoryExists) {
+              updateData.subjectCategoryId = categoryId;
+              console.log(`✅ Using existing category: ${categoryId}`);
+            } else {
+              console.warn(`⚠️ Category ${categoryId} not found, using null instead`);
+              updateData.subjectCategoryId = null;
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error checking category ${categoryId}, using null:`, error);
+            updateData.subjectCategoryId = null;
+          }
+        }
+        
         if (subjectName) updateData.subjectName = subjectName;
         
         await prisma.learningSession.update({
           where: { id: sessionId },
           data: updateData
         });
-        console.log(`Updated session with category: ${categoryId}, subject: ${subjectName}`);
+        console.log(`Updated session with category: ${updateData.subjectCategoryId || 'null'}, subject: ${subjectName}`);
       }
       
       const createdConcepts = [];
