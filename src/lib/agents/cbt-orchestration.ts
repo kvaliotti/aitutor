@@ -356,18 +356,52 @@ async function getTherapySessionContext(sessionId: string, userId: string) {
   try {
     console.log('Getting therapy session context for:', { sessionId, userId });
     
+    // Single optimized query with better performance
     const session = await prisma.therapySession.findFirst({
       where: { id: sessionId, userId },
-      include: {
+      select: {
+        id: true,
+        primaryConcern: true,
+        therapyGoal: true,
+        therapyStyle: true,
+        sessionType: true,
+        progressLevel: true,
         user: { select: { email: true } },
         goals: {
-          orderBy: { priority: 'asc' },
-          include: { subGoals: true }
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            category: true,
+            isCompleted: true,
+            completedAt: true
+          },
+          orderBy: { createdAt: 'desc' }
         },
         exercises: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            exerciseType: true,
+            isCompleted: true,
+            completedAt: true
+          },
           orderBy: { createdAt: 'desc' }
         },
         abcdeExercises: {
+          select: {
+            id: true,
+            title: true,
+            activatingEvent: true,
+            beliefs: true,
+            consequences: true,
+            disputation: true,
+            effectiveBeliefs: true,
+            completionStatus: true,
+            createdAt: true,
+            completedAt: true
+          },
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -387,10 +421,11 @@ async function getTherapySessionContext(sessionId: string, userId: string) {
       abcdeExercisesCount: session.abcdeExercises.length
     });
 
-    const completedExercises = session.exercises.filter(exercise => exercise.isCompleted);
-    const pendingExercises = session.exercises.filter(exercise => !exercise.isCompleted);
-    const completedABCDEExercises = session.abcdeExercises.filter(exercise => exercise.completionStatus === 'completed');
-    const inProgressABCDEExercises = session.abcdeExercises.filter(exercise => exercise.completionStatus === 'in_progress');
+    // Filter exercises in JavaScript instead of multiple DB queries
+    const completedExercises = session.exercises.filter((exercise: any) => exercise.isCompleted);
+    const pendingExercises = session.exercises.filter((exercise: any) => !exercise.isCompleted);
+    const completedABCDEExercises = session.abcdeExercises.filter((exercise: any) => exercise.completionStatus === 'completed');
+    const inProgressABCDEExercises = session.abcdeExercises.filter((exercise: any) => exercise.completionStatus === 'in_progress');
 
     const context = {
       userEmail: session.user.email,
@@ -398,12 +433,13 @@ async function getTherapySessionContext(sessionId: string, userId: string) {
       therapyGoal: session.therapyGoal,
       therapyStyle: session.therapyStyle,
       sessionType: session.sessionType,
+      progressLevel: session.progressLevel,
       therapyGoals: session.goals,
       completedExercises,
       pendingExercises,
       completedABCDEExercises,
       inProgressABCDEExercises,
-      progressLevel: session.progressLevel
+      allABCDEExercises: session.abcdeExercises
     };
 
     console.log('Returning therapy session context:', {
@@ -413,9 +449,8 @@ async function getTherapySessionContext(sessionId: string, userId: string) {
       goalsCount: context.therapyGoals.length,
       completedExercisesCount: context.completedExercises.length,
       pendingExercisesCount: context.pendingExercises.length,
-      completedABCDEExercisesCount: context.completedABCDEExercises.length,
-      inProgressABCDEExercisesCount: context.inProgressABCDEExercises.length,
-      progressLevel: context.progressLevel
+      inProgressABCDECount: context.inProgressABCDEExercises.length,
+      completedABCDECount: context.completedABCDEExercises.length
     });
 
     return context;

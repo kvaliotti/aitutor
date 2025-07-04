@@ -62,6 +62,7 @@ export function TutorLayout() {
   const [user, setUser] = useState<{ id: string; email: string; createdAt: string } | null>(null);
   const [progressUpdateTimeout, setProgressUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showSessionSelector, setShowSessionSelector] = useState(false);
+  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   
   // Debounced progress update system
   const [pendingProgressUpdates, setPendingProgressUpdates] = useState<{
@@ -98,6 +99,8 @@ export function TutorLayout() {
       if (progressUpdateTimeout) {
         clearTimeout(progressUpdateTimeout);
       }
+      // Reset request state on unmount
+      setIsRequestInProgress(false);
     };
   }, [progressUpdateTimeout]);
 
@@ -276,97 +279,101 @@ export function TutorLayout() {
       return;
     }
 
+    // Prevent multiple concurrent requests to avoid race conditions
+    if (isRequestInProgress) {
+      console.warn('Request already in progress, skipping duplicate request');
+      setError('Please wait for the current message to complete before sending another.');
+      return;
+    }
+
     console.log('Sending message to session:', session.id, 'Message:', message);
 
     // Create user message object outside try block so it's accessible in catch
     const userMessage: Message = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // More unique temp ID
-      role: 'user',
+      id: `temp-${Date.now()}-${Math.random()}`,
       content: message,
+      role: 'user',
       createdAt: new Date().toISOString()
     };
 
     try {
-      setIsLoading(true);
+      setIsRequestInProgress(true);
       setError(null);
-      
-      // Check if this might trigger a learning plan creation
-      const isNewTopicRequest = messages.length === 0 || 
-        message.toLowerCase().includes('learn') || 
-        message.toLowerCase().includes('teach me') ||
-        message.toLowerCase().includes('new topic') ||
-        message.toLowerCase().includes('start');
-      
-      if (isNewTopicRequest) {
-        setIsCreatingPlan(true);
-      }
-      
-      // Add user message to UI immediately
+
+      // Add user message immediately for better UX
       setMessages(prev => [...prev, userMessage]);
+      setIsLoading(true);
+
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 60000); // 60 second timeout
 
       const response = await fetch('/api/tutor/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          sessionId: session.id, 
-          message 
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: session.id,
+          message: message,
+          threadId: session.threadId,
+        }),
+        signal: controller.signal
       });
 
-      console.log('Chat response status:', response.status);
+      clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Chat response data:', data);
-        
-        // Handle response (now always combined)
-        const aiMessage: Message = {
-          id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Create assistant message
+        const assistantMessage: Message = {
+          id: `ai-${Date.now()}-${Math.random()}`,
+          content: data.response,
           role: 'assistant',
-          content: data.message,
           createdAt: new Date().toISOString()
         };
+
+        setMessages(prev => [...prev, assistantMessage]);
         
-        // Replace temporary user message with real one and add AI response
-        setMessages(prev => {
-          const withoutTemp = prev.filter(m => m.id !== userMessage.id);
-          const realUserMessage = {
-            ...userMessage,
-            id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-          };
-          return [...withoutTemp, realUserMessage, aiMessage];
-        });
-        
-        // Update concepts and tasks if they were modified
-        if (data.concepts) {
-          console.log('Updating concepts:', data.concepts);
-          setConcepts(data.concepts);
+        // Load updated session data with better error handling
+        try {
+          await loadSessionData(session.id);
+        } catch (loadError) {
+          console.warn('Failed to reload session data:', loadError);
+          // Don't fail the entire request if session reload fails
         }
-        if (data.tasks) {
-          console.log('Updating tasks:', data.tasks);
-          setTasks(data.tasks);
-        }
-        
-        // Update session completion rate
-        if (data.completionRate !== undefined) {
-          setCurrentSession(prev => prev ? { ...prev, completionRate: data.completionRate } : null);
-        }
-        
       } else {
-        const errorData = await response.json();
-        console.error('Chat API error:', errorData);
-        setError(errorData.error || 'Failed to send message');
-        // Remove the temporary user message on error
-        setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+        throw new Error(data.error || 'Failed to get response from AI');
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setError('Failed to send message. Please check your connection and try again.');
+      
       // Remove the temporary user message on error
-      setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+      setMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
+      
+      // Set appropriate error message with proper type checking
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          setError('Request timed out. Please try again with a shorter message.');
+        } else if (error.message.includes('Failed to fetch')) {
+          setError('Connection error. Please check your internet connection and try again.');
+        } else {
+          setError(error.message || 'Failed to send message. Please try again.');
+        }
+      } else {
+        setError('Failed to send message. Please try again.');
+      }
     } finally {
       setIsLoading(false);
-      setIsCreatingPlan(false);
+      setIsRequestInProgress(false);
     }
   };
 
@@ -377,87 +384,33 @@ export function TutorLayout() {
       return;
     }
 
+    if (isRequestInProgress) {
+      console.warn('Message request already in progress');
+      setError('Please wait for the current message to complete before sending another.');
+      return;
+    }
+
     await sendMessageToSession(currentSession, message);
   };
 
   // Debounced function to send progress updates to the agent
   const scheduleProgressUpdate = () => {
-    console.log('scheduleProgressUpdate called', { 
-      currentSession: currentSession?.id, 
-      conceptsCount: concepts.length, 
-      tasksCount: tasks.length 
-    });
+    console.log('scheduleProgressUpdate called - DISABLED to prevent fetch collisions');
+    // DISABLED: This automated system was causing "Failed to fetch" errors
+    // by creating race conditions with user-initiated messages and hitting rate limits
     
-    if (!currentSession) {
-      console.log('No current session, skipping progress update');
-      return;
-    }
-
-    // Clear existing timeout
-    if (progressUpdateTimeout) {
-      console.log('Clearing existing progress update timeout');
-      clearTimeout(progressUpdateTimeout);
-    }
-
-    // Set new timeout for 1.5 seconds
-    const newTimeout = setTimeout(async () => {
-      console.log('Progress update timeout triggered, fetching fresh data...');
-      
-      try {
-        // Fetch fresh data to avoid stale closure issues
-        const [conceptsRes, tasksRes] = await Promise.all([
-          fetch(`/api/tutor/concepts?sessionId=${currentSession.id}`),
-          fetch(`/api/tutor/tasks?sessionId=${currentSession.id}`)
-        ]);
-
-        const freshConcepts = conceptsRes.ok ? (await conceptsRes.json()).concepts : [];
-        const freshTasks = tasksRes.ok ? (await tasksRes.json()).tasks : [];
-        
-        const completedConceptNames = freshConcepts
-          .filter((c: any) => c.isCompleted)
-          .map((c: any) => c.name);
-        
-        const completedTaskTitles = freshTasks
-          .filter((t: any) => t.isCompleted)
-          .map((t: any) => t.title);
-
-        console.log('Fresh progress update data:', { 
-          totalConcepts: freshConcepts.length,
-          totalTasks: freshTasks.length,
-          completedConceptNames, 
-          completedTaskTitles 
-        });
-
-        if (completedConceptNames.length > 0 || completedTaskTitles.length > 0) {
-          let progressMessage = "🎉 Progress Update: I just completed some learning milestones!\n\n";
-          
-          if (completedConceptNames.length > 0) {
-            progressMessage += `✅ Completed Concepts:\n${completedConceptNames.map((name: string) => `• ${name}`).join('\n')}\n\n`;
-          }
-          
-          if (completedTaskTitles.length > 0) {
-            progressMessage += `✅ Completed Tasks:\n${completedTaskTitles.map((title: string) => `• ${title}`).join('\n')}\n\n`;
-          }
-          
-          progressMessage += "What should I focus on next in my learning journey?";
-
-          console.log('Sending progress update message:', progressMessage);
-          
-          // Send the progress update to the agent
-          await sendMessageToSession(currentSession, progressMessage);
-        } else {
-          console.log('No completed concepts or tasks, skipping progress message');
-        }
-      } catch (error) {
-        console.error('Error fetching fresh progress data:', error);
-      }
-
-      // Clear the timeout reference
-      setProgressUpdateTimeout(null);
-    }, 1500); // 1.5 second delay
-
-    console.log('Set new progress update timeout');
-    setProgressUpdateTimeout(newTimeout);
+    // Original problematic code that caused fetch collisions:
+    // - Multiple automated sendMessageToSession calls
+    // - Race conditions with user messages  
+    // - Rate limiting (60 requests/minute)
+    // - Background requests interfering with user requests
+    
+    return; // Early return to disable this feature
+    
+    // TODO: Replace with a better approach:
+    // - Show progress updates in UI only (no automated API calls)
+    // - Let users manually ask for progress reviews
+    // - Use a queue system to prevent race conditions
   };
 
   const toggleConceptCompletion = async (conceptId: string, isCompleted: boolean) => {

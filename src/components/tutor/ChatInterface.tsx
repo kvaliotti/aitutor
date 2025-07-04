@@ -389,39 +389,39 @@ export function ChatInterface({
   // Session creation form state
   const [isCreating, setIsCreating] = useState(false);
 
-  // Optimized auto-scroll with throttling
-  const scrollToBottom = useCallback(() => {
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, []);
-
-  // Throttled scroll effect to prevent excessive scrolling
-  useEffect(() => {
-    if (messages.length > 0) {
-      const timeoutId = setTimeout(scrollToBottom, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [messages.length, scrollToBottom]); // Only depend on message count, not entire messages array
-
-  // Memoize parsed messages to prevent re-parsing on every render
-  const parsedMessages = useMemo(() => {
-    return messages.map((message): ParsedMessage => {
-      if (message.role === 'assistant') {
-        // Parse the agent message content (removed truncation)
-        const parsedParts = parseAgentMessage(message.content);
-        return {
-          ...message,
-          parsedParts
-        };
-      }
-      return message;
-    });
   }, [messages]);
 
-  // Show only recent messages for performance (virtual scrolling effect)
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [inputValue]);
+
+  // Cleanup observers and references on unmount
+  useEffect(() => {
+    return () => {
+      // React automatically handles cleanup for onKeyDown events
+      // No manual cleanup needed for React event handlers
+    };
+  }, []);
+
+  // Performance optimization: Memoize parsed messages
+  const parsedMessages = useMemo(() => {
+    return messages.map(msg => ({
+      ...msg,
+      parsedParts: msg.role === 'assistant' ? parseAgentMessage(msg.content) : undefined
+    }));
+  }, [messages]);
+
+  // Limit displayed messages for performance (show latest 50)
   const displayMessages = useMemo(() => {
-    // For conversations with many messages, only show the latest 50
     if (parsedMessages.length > 50) {
       return parsedMessages.slice(-50);
     }
@@ -686,8 +686,8 @@ export function ChatInterface({
                   </div>
                 </div>
               </div>
-                         );
-           }).flat()}
+            );
+            }).flat()}
           </>
         )}
 

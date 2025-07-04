@@ -156,15 +156,43 @@ async function getSessionContext(sessionId: string, userId: string) {
   try {
     console.log('Getting session context for:', { sessionId, userId });
     
+    // Single optimized query with better performance
     const session = await prisma.learningSession.findFirst({
       where: { id: sessionId, userId },
-      include: {
+      select: {
+        id: true,
+        topic: true,
+        goal: true,
+        teachingStyle: true,
+        responseStyle: true,
+        completionRate: true,
         user: { select: { email: true } },
         concepts: {
-          orderBy: { orderIndex: 'asc' },
-          include: { subConcepts: true }
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            orderIndex: true,
+            isCompleted: true,
+            subConcepts: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                isCompleted: true
+              }
+            }
+          },
+          orderBy: { orderIndex: 'asc' }
         },
         tasks: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            isCompleted: true,
+            completedAt: true
+          },
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -183,6 +211,7 @@ async function getSessionContext(sessionId: string, userId: string) {
       tasksCount: session.tasks.length
     });
 
+    // Filter tasks in JavaScript instead of multiple DB queries
     const completedTasks = session.tasks.filter(task => task.isCompleted);
     const pendingTasks = session.tasks.filter(task => !task.isCompleted);
 
