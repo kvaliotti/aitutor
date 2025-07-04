@@ -156,16 +156,23 @@ export function TutorLayout() {
     }
   };
 
-  const loadSessionData = async (sessionId: string) => {
+  const loadSessionData = async (sessionId: string, reloadMessages: boolean = true) => {
     try {
       setIsLoading(true);
       
       // Load concepts, tasks, and messages in parallel
-      const [conceptsRes, tasksRes, messagesRes] = await Promise.all([
+      const requests = [
         fetch(`/api/tutor/concepts?sessionId=${sessionId}`),
-        fetch(`/api/tutor/tasks?sessionId=${sessionId}`),
-        fetch(`/api/tutor/chat?sessionId=${sessionId}`)
-      ]);
+        fetch(`/api/tutor/tasks?sessionId=${sessionId}`)
+      ];
+      
+      // Only reload messages if explicitly requested (avoid overwriting recent UI updates)
+      if (reloadMessages) {
+        requests.push(fetch(`/api/tutor/chat?sessionId=${sessionId}`));
+      }
+      
+      const responses = await Promise.all(requests);
+      const [conceptsRes, tasksRes, messagesRes] = responses;
 
       if (conceptsRes.ok) {
         const conceptsData = await conceptsRes.json();
@@ -177,7 +184,8 @@ export function TutorLayout() {
         setTasks(tasksData.tasks);
       }
 
-      if (messagesRes.ok) {
+      // Only update messages if we actually fetched them
+      if (reloadMessages && messagesRes && messagesRes.ok) {
         const messagesData = await messagesRes.json();
         setMessages(messagesData.messages);
       }
@@ -343,9 +351,9 @@ export function TutorLayout() {
 
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Load updated session data with better error handling
+        // Reload concepts and tasks only (preserve messages to avoid overwriting UI)
         try {
-          await loadSessionData(session.id);
+          await loadSessionData(session.id, false);
         } catch (loadError) {
           console.warn('Failed to reload session data:', loadError);
           // Don't fail the entire request if session reload fails
@@ -432,8 +440,8 @@ export function TutorLayout() {
           concept.id === conceptId ? { ...concept, isCompleted } : concept
         ));
         
-        // Reload session to get updated completion rate
-        loadSessionData(currentSession.id);
+        // Reload session to get updated completion rate (but don't reload messages)
+        loadSessionData(currentSession.id, false);
         
         // Schedule progress update to agent if completing (not uncompleting)
         if (isCompleted) {
