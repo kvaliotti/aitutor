@@ -340,23 +340,27 @@ export function TutorLayout() {
 
       const data = await response.json();
       
-      if (data.success) {
+      // Check if we have a message response (the API returns message, not success)
+      if (data.message) {
         // Create assistant message
         const assistantMessage: Message = {
           id: `ai-${Date.now()}-${Math.random()}`,
-          content: data.response,
+          content: data.message,
           role: 'assistant',
           createdAt: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Reload concepts and tasks only (preserve messages to avoid overwriting UI)
-        try {
-          await loadSessionData(session.id, false);
-        } catch (loadError) {
-          console.warn('Failed to reload session data:', loadError);
-          // Don't fail the entire request if session reload fails
+        // Update concepts and tasks if provided
+        if (data.concepts) {
+          setConcepts(data.concepts);
+        }
+        if (data.tasks) {
+          setTasks(data.tasks);
+        }
+        if (data.completionRate !== undefined) {
+          setCurrentSession(prev => prev ? { ...prev, completionRate: data.completionRate } : null);
         }
       } else {
         throw new Error(data.error || 'Failed to get response from AI');
